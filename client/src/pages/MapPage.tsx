@@ -1,7 +1,6 @@
 import { Layers, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
-import { LatLngBounds } from "leaflet";
+import GoogleMap from "../components/GoogleMap";
 import { listMapMarkers } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useLanguage } from "../lib/language";
@@ -47,30 +46,42 @@ export default function MapPage() {
     return [lat, lng];
   }, [rows]);
 
+  const markers = useMemo(
+    () =>
+      rows.map((item) => {
+        const status = normalizeStatus(item);
+        return {
+          lat: Number(item.latitude),
+          lng: Number(item.longitude),
+          color: statusColors[status] ?? "#ef4444",
+          title: item.ticket_number,
+          infoHtml: `
+            <div style="max-width:220px">
+              <p style="margin:0 0 4px;font-weight:600;">${escapeHtml(item.ticket_number)}</p>
+              <p style="margin:0 0 4px;">${escapeHtml(item.title)}</p>
+              ${item.citizen_name ? `<p style="margin:0 0 4px;color:#0f172a;"><strong>Citizen:</strong> ${escapeHtml(item.citizen_name)}</p>` : ""}
+              ${item.category_name ? `<p style="margin:0 0 4px;color:#0f172a;"><strong>Category:</strong> ${escapeHtml(item.category_name)}</p>` : ""}
+              <p style="margin:0 0 4px;color:#334155;">${escapeHtml(item.location)}</p>
+              <p style="margin:0;color:#475569;text-transform:capitalize;">
+                ${escapeHtml(isCitizen ? statusLabel(status, t) : statusLabelEnglish(status))}
+              </p>
+            </div>
+          `
+        };
+      }),
+    [rows, isCitizen, t]
+  );
+
   return (
     <main className="h-[calc(100vh-85px)] w-full">
       <section className="relative h-full">
-        <MapContainer center={center} zoom={12} className="h-full w-full" scrollWheelZoom>
-          <FitToMarkers rows={rows} />
-          <TileLayer attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          {rows.map((item) => (
-            <CircleMarker
-              key={item.id}
-              center={[Number(item.latitude), Number(item.longitude)]}
-              radius={11}
-              pathOptions={{ color: "white", weight: 2, fillColor: statusColors[normalizeStatus(item)] ?? "#ef4444", fillOpacity: 0.95 }}
-            >
-              <Popup>
-                <p className="font-semibold">{item.ticket_number}</p>
-                <p>{item.title}</p>
-                <p className="text-slate-700">{item.location}</p>
-                <p className="capitalize text-slate-600">
-                  {isCitizen ? statusLabel(normalizeStatus(item), t) : statusLabelEnglish(normalizeStatus(item))}
-                </p>
-              </Popup>
-            </CircleMarker>
-          ))}
-        </MapContainer>
+        <GoogleMap
+          className="h-full w-full"
+          center={{ lat: center[0], lng: center[1] }}
+          zoom={12}
+          markers={markers}
+          fitToMarkers
+        />
 
         <div className="absolute left-5 top-5 z-[500] rounded-xl border border-slate-200 bg-white p-3 shadow-md">
           <div className="inline-flex items-center gap-2 rounded-lg bg-nagar-blue px-3 py-2 text-white">
@@ -126,15 +137,11 @@ function statusLabelEnglish(status: string) {
   return "Submitted";
 }
 
-function FitToMarkers({ rows }: { rows: Grievance[] }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (rows.length === 0) return;
-    const points = rows.map((item) => [Number(item.latitude), Number(item.longitude)] as [number, number]);
-    const bounds = new LatLngBounds(points);
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-  }, [rows, map]);
-
-  return null;
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }

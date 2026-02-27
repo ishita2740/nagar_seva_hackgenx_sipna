@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const mapsApiKey = process.env.GOOGLE_MAPS_API_KEY;
+
 import bcrypt from "bcryptjs";
 import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
@@ -365,6 +368,53 @@ app.get("/api/grievances/my", auth, (req: AuthenticatedRequest, res) => {
       `
     )
     .all(req.user.id);
+  return res.json(rows);
+});
+
+app.get("/api/map/markers", auth, (req: AuthenticatedRequest, res) => {
+  const sessionUser = req.user;
+  if (!sessionUser) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const db = getDb();
+  if (sessionUser.role === "authority" || sessionUser.role === "contractor") {
+    const rows = db
+      .prepare(
+        `
+          SELECT
+            g.*,
+            c.name AS category_name,
+            u.name AS citizen_name,
+            u.email AS citizen_email,
+            u.phone AS citizen_phone
+          FROM grievances g
+          JOIN grievance_categories c ON c.id = g.category_id
+          JOIN users u ON u.id = g.citizen_id
+          WHERE g.latitude IS NOT NULL
+            AND g.longitude IS NOT NULL
+          ORDER BY g.updated_at DESC, g.created_at DESC
+        `
+      )
+      .all();
+    return res.json(rows);
+  }
+
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          g.*,
+          c.name AS category_name
+        FROM grievances g
+        JOIN grievance_categories c ON c.id = g.category_id
+        WHERE g.citizen_id = ?
+          AND g.latitude IS NOT NULL
+          AND g.longitude IS NOT NULL
+        ORDER BY g.updated_at DESC, g.created_at DESC
+      `
+    )
+    .all(sessionUser.id);
   return res.json(rows);
 });
 

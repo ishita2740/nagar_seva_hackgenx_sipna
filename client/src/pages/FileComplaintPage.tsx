@@ -13,6 +13,7 @@ import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from 
 import { useNavigate } from "react-router-dom";
 import { listCategories, submitComplaint } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { geocodeAddress, reverseGeocodeByCoordinates } from "../lib/googleMaps";
 import { useLanguage } from "../lib/language";
 import { Category } from "../types";
 
@@ -189,21 +190,7 @@ export default function FileComplaintPage() {
         updateField("longitude", position.coords.longitude.toFixed(6));
 
         try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
-          );
-          const json = (await response.json()) as { display_name?: string; address?: Record<string, string> };
-          const prettyAddress =
-            json.display_name ??
-            [
-              json.address?.road,
-              json.address?.suburb,
-              json.address?.city || json.address?.town || json.address?.village,
-              json.address?.state,
-              json.address?.country
-            ]
-              .filter(Boolean)
-              .join(", ");
+          const prettyAddress = await reverseGeocodeByCoordinates(lat, lon);
 
           if (prettyAddress) {
             updateField("location", prettyAddress);
@@ -211,8 +198,10 @@ export default function FileComplaintPage() {
           } else {
             setError("Could not resolve place name from GPS");
           }
-        } catch {
-          setError("Could not fetch place name from GPS coordinates");
+        } catch (geocodeError) {
+          updateField("location", `Lat ${lat.toFixed(6)}, Lng ${lon.toFixed(6)}`);
+          setGpsMessage("GPS coordinates captured. Address lookup failed, so coordinates were used.");
+          setError(geocodeError instanceof Error ? geocodeError.message : "Could not fetch place name from GPS coordinates");
         }
         setGpsLoading(false);
       },
@@ -374,17 +363,13 @@ async function resolveCoordinates(location: string, latitude: string, longitude:
   }
 
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(location)}`
-    );
-    const json = (await response.json()) as Array<{ lat: string; lon: string }>;
-    const first = json[0];
-    if (!first) {
+    const result = await geocodeAddress(location);
+    if (!result) {
       return { latitude: undefined, longitude: undefined };
     }
     return {
-      latitude: Number(first.lat),
-      longitude: Number(first.lon)
+      latitude: result.lat,
+      longitude: result.lng
     };
   } catch {
     return { latitude: undefined, longitude: undefined };

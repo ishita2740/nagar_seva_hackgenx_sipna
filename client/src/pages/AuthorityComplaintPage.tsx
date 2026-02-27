@@ -1,7 +1,7 @@
 import { LoaderCircle, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Popup, TileLayer } from "react-leaflet";
 import { Link, useParams } from "react-router-dom";
+import GoogleMap from "../components/GoogleMap";
 import { closeContractorComplaint, getAuthorityComplaint, updateAuthorityComplaintStatus } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -170,12 +170,21 @@ export default function AuthorityComplaintPage() {
         </p>
         {complaint.latitude !== null && complaint.longitude !== null ? (
           <div className="h-72 overflow-hidden rounded-xl">
-            <MapContainer center={[Number(complaint.latitude), Number(complaint.longitude)]} zoom={14} className="h-full w-full">
-              <TileLayer attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <CircleMarker center={[Number(complaint.latitude), Number(complaint.longitude)]} radius={10} pathOptions={{ color: "white", weight: 2, fillColor: "#0A4C84", fillOpacity: 0.9 }}>
-                <Popup>{complaint.location}</Popup>
-              </CircleMarker>
-            </MapContainer>
+            <GoogleMap
+              className="h-full w-full"
+              center={{ lat: Number(complaint.latitude), lng: Number(complaint.longitude) }}
+              zoom={14}
+              fitToMarkers
+              markers={[
+                {
+                  lat: Number(complaint.latitude),
+                  lng: Number(complaint.longitude),
+                  title: complaint.ticket_number,
+                  color: "#0A4C84",
+                  infoHtml: `<div style="max-width:220px"><p style="margin:0;font-weight:600;">${escapeHtml(complaint.location ?? "Complaint location")}</p></div>`
+                }
+              ]}
+            />
           </div>
         ) : (
           <p className="text-slate-500">Location coordinates not available.</p>
@@ -284,4 +293,13 @@ function statusLabel(complaint: { status?: string; complaint_status?: string }) 
   if (complaint.status === "in_progress" || complaint.status === "awaiting_confirmation") return "In Progress";
   if (complaint.status === "closed") return "Closed";
   return "Submitted";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
