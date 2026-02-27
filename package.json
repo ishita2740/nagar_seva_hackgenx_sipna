@@ -7,8 +7,9 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "node scripts/wait-for-port.js 3000 && npm --prefix client run dev",
     "dev:server": "tsx watch src/server.ts",
-    "build": "npm run build:server && npm --prefix client run build",
+    "build": "npm run build:server && npm run build:client",
     "built": "npm run build",
+    "build:client": "npm --prefix client install --include=dev && npm --prefix client run build",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.server.json --noEmit"
