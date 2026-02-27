@@ -8,6 +8,7 @@
     "dev:client": "node scripts/wait-for-port.js 3000 && npm --prefix client run dev",
     "dev:server": "tsx watch src/server.ts",
     "build": "npm run build:server && npm --prefix client run build",
+    "built": "npm run build",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.server.json --noEmit"
